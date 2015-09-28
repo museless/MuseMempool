@@ -1,0 +1,60 @@
+--------------------------------------------------------------------------------
+Profile data file 'callgrind.out.21020' (creator: callgrind-3.10.0)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 34257498
+Trigger: Program termination
+Profiled target:  ../mdpool (PID 21020, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  off
+
+--------------------------------------------------------------------------------
+         Ir 
+--------------------------------------------------------------------------------
+202,430,811  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+         Ir  file:function
+--------------------------------------------------------------------------------
+
+      1,162  < ???:malloc'2 (1x) [/usr/lib64/libc-2.17.so]
+146,012,940  < ???:malloc (999999x) [/usr/lib64/libc-2.17.so]
+146,007,512  *  ???:_int_malloc [/usr/lib64/libc-2.17.so]
+        793  >   ???:malloc_consolidate (1x) [/usr/lib64/libc-2.17.so]
+      5,659  >   ???:__default_morecore (86x) [/usr/lib64/libc-2.17.so]
+        138  >   ???:mmap (23x) [/usr/lib64/libc-2.17.so]
+
+        667  < ???:calloc (17x) [/usr/lib64/ld-2.17.so]
+        204  < ???:_dl_map_object_deps (6x) [/usr/lib64/ld-2.17.so]
+179,070,641  < ???:operator new(unsigned long) (1000000x) [/usr/lib64/libstdc++.so.6.0.19]
+        136  < ???:_dl_map_object (4x) [/usr/lib64/ld-2.17.so]
+         68  < ???:_dl_init_paths (2x) [/usr/lib64/ld-2.17.so]
+         34  < ???:_dl_important_hwcaps (1x) [/usr/lib64/ld-2.17.so]
+        170  < ???:_dl_new_object (5x) [/usr/lib64/ld-2.17.so]
+         34  < ???:expand_dynamic_string_token (1x) [/usr/lib64/ld-2.17.so]
+ 33,000,124  *  ???:malloc [/usr/lib64/libc-2.17.so]
+     57,721  >   ???:malloc_hook_ini (1x) [/usr/lib64/libc-2.17.so]
+      1,169  >   ???:__libc_memalign (36x) [/usr/lib64/ld-2.17.so]
+146,012,940  >   ???:_int_malloc (999999x) [/usr/lib64/libc-2.17.so]
+
+195,071,841  < /Code/C/Mempool/src/mdp_test.cpp:new_test() (1000000x) [/Code/C/Mempool/mdpool]
+ 16,000,004  *  ???:operator new(unsigned long) [/usr/lib64/libstdc++.so.6.0.19]
+      1,196  >   ???:_dl_runtime_resolve (1x) [/usr/lib64/ld-2.17.so]
+179,070,641  >   ???:malloc (1000000x) [/usr/lib64/libc-2.17.so]
+
+201,095,593  < /Code/C/Mempool/src/mdp_test.cpp:main (1x) [/Code/C/Mempool/mdpool]
+  6,000,059  *  /Code/C/Mempool/src/mdp_test.cpp:new_test() [/Code/C/Mempool/mdpool]
+          6  >   ???:0x000000003805d653 (2x) [/usr/lib64/valgrind/callgrind-amd64-linux]
+      5,585  >   ???:std::ostream::operator<<(std::ostream& (*)(std::ostream&)) (1x) [/usr/lib64/libstdc++.so.6.0.19]
+      5,787  >   ???:std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*) (1x) [/usr/lib64/libstdc++.so.6.0.19]
+      7,045  >   ???:std::ostream::operator<<(long) (1x) [/usr/lib64/libstdc++.so.6.0.19]
+195,071,841  >   ???:operator new(unsigned long) (1000000x) [/usr/lib64/libstdc++.so.6.0.19]
+      5,270  >   ???:_dl_runtime_resolve (5x) [/usr/lib64/ld-2.17.so]
+
