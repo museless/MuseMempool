@@ -1,4 +1,4 @@
-# MDPool
+# Muse Divide Mempool
 
 ## Overview
 **MDPool**, a memory divide pool
@@ -6,13 +6,15 @@
 
 ## Brief introduction
 A memory pool, when you need to malloc many size fixed
-piece, you can use it replace malloc/free new/delete
+piece, you can use it replace malloc/free new/delete, this mempool
+use _sync_xx_xx_xx to make pthread safe
 
 
 ## Advantage/Disadvantage
 **Adv**
 1. It's speed as same as malloc, new when malloc small pieces
 2. Do not need to manage pieces
+3. If you use mmdp_reset_default wisely, you will save many memory and time
 
 **Disadv**
 1. May be waste many memory space when you malloc size unstable pieces
