@@ -11,14 +11,14 @@ use _sync_xx_xx_xx to make pthread safe
 
 
 ## Advantage/Disadvantage
-**Adv**
-1. It's speed as same as malloc, new when malloc small pieces
-2. Do not need to manage pieces
-3. If you use mmdp_reset_default wisely, you will save many memory and time
+**Adv**<br>
+1. It's speed as same as malloc, new when malloc small pieces<br>
+2. Do not need to manage pieces<br>
+3. If you use mmdp_reset_default wisely, you will save many memory and times<br>
 
-**Disadv**
-1. May be waste many memory space when you malloc size unstable pieces
-2. Bad performace when using it to malloc large piece
+**Disadv**<br>
+1. May be waste many memory space when you malloc size unstable pieces<br>
+2. Bad performace when using it to malloc large piece<br>
 
 
 ## Usage
