@@ -22,18 +22,18 @@ use _sync_xx_xx_xx to make pthread safe
 
 
 ## Usage
-Easy understanding api for everyone
+Easy understanding api for everyone<br>
 
-**First Move**
-Calling "mmdp_create()" to get a DMPH stru pointer
-Warning: when argument 1 borderSize for mmdp_create smaller than DEFAULT_BSIZE
-it will use DEFAULT_BSIZE replace borderSize to be a small chunk size
+**First Move**<br>
+Calling "mmdp_create()" to get a DMPH stru pointer<br>
+Warning: when argument 1 borderSize for mmdp_create smaller than DEFAULT_BSIZE<br>
+it will use DEFAULT_BSIZE replace borderSize to be a small chunk size<br><br>
 
-**Second Move**
-1. malloc memory "mmdp_malloc()"
-2. "mmdp_free_handler()" just free the DMPH stru
-3. "mmdp_free_pool()" free the whole pool(DMPH stru and the memory that pool malloced)
-4. "mmdp_free()" just free the memory space that the memory space called by mmdp_malloc
-5. "mmdp_reset_default()" to make the small chunk reuseable. But careful, you need to sure no one use that chunk anymore
+**Second Move**<br>
+1. malloc memory "mmdp_malloc()"<br>
+2. "mmdp_free_handler()" just free the DMPH stru<br>
+3. "mmdp_free_pool()" free the whole pool(DMPH stru and the memory that pool malloced<br>
+4. "mmdp_free()" just free the memory space that the memory space called by mmdp_malloc<br>
+5. "mmdp_reset_default()" to make the small chunk reuseable. But careful, you need to sure no one use that chunk anymore<br>
 
 
