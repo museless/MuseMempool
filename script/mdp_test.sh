@@ -5,7 +5,7 @@
 
 cd /Code/C/Mempool/script
 
-rm -rf ../log
+rm -f ../log/*
 mkdir ../log
 
 valgrind --tool=callgrind ../mdpool
