@@ -35,10 +35,9 @@
  *             Part One: Define
 -*---------------------------------------------*/
 
-#define mmdp_handler_set_empty(hStru) { \
+#define mmdp_set(hStru) { \
     hStru->mh_big = NULL; \
     hStru->mh_stru = hStru->mh_select = NULL; \
-    hStru->mh_err = MMDP_NO_ERROR; \
     hStru->mh_cnt = 0; \
 }
 
@@ -81,24 +80,17 @@ static  DMPB    *mmdp_default_block_search(DMPB *begBlock, mpt_t *pLoct);
 -*---------------------------------------------*/
 
 /*-----mmdp_create-----*/
-DMPH *mmdp_create(int borderSize)
+void mmdp_create(DMPH *pool, int border)
 {
-    DMPH   *pMph;
-    int     nRem;
+    int32_t remain;
 
-    if (!(pMph = (DMPH *)malloc(sizeof(DMPH))))
-        return  NULL;
+    mmdp_set(pool);
 
-    mmdp_handler_set_empty(pMph);
+    remain = (border >> 1) ? 1 : 0;
+    pool->mh_sizebor = (border < DEFAULT_BSIZE) ? DEFAULT_BSIZE : (((border >>  1) + remain) << 1);
 
-    nRem = (borderSize >> 1) ? 1 : 0;
-    pMph->mh_sizebor = (borderSize < DEFAULT_BSIZE) ? DEFAULT_BSIZE : 
-            (((borderSize >>  1) + nRem) << 1);
-
-    mato_init(&pMph->mh_biglock, 1);
-    mato_init(&pMph->mh_deflock, 1);
-
-    return  pMph;
+    mato_init(pool->bigato, 1);
+    mato_init(pool->defato, 1);
 }
 
 
@@ -110,9 +102,9 @@ void *mmdp_malloc(DMPH *mHand, msize_t maSize)
     if (maSize > mHand->mh_sizebor)
         return  mmdp_big_malloc(mHand, maSize);
 
-    mato_lock(mHand->mh_deflock);
+    mato_lock(mHand->defato);
     pMem = mmdp_default_malloc(mHand, maSize);
-    mato_unlock(mHand->mh_deflock);
+    mato_unlock(mHand->defato);
 
     return  pMem;
 }
@@ -125,7 +117,7 @@ void mmdp_free(DMPH *pHandler, mpt_t *pFree)
     DMPB    *pBlock;
 
     if ((pBig = mmdp_big_search(pHandler->mh_big, pFree))) {
-        mato_lock(pHandler->mh_biglock);
+        mato_lock(pHandler->bigato);
 
         bigPoint = (pBig == pHandler->mh_big) ? &pHandler->mh_big : &pBig->mbb_fore;
         *bigPoint = pBig->mbb_next;
@@ -133,14 +125,14 @@ void mmdp_free(DMPH *pHandler, mpt_t *pFree)
         if (pBig->mbb_fore)
             pBig->mbb_fore->mbb_next = pBig->mbb_next;
 
-        mato_unlock(pHandler->mh_biglock);
+        mato_unlock(pHandler->bigato);
         free(pBig);
 
         return;
     }
 
     if ((pBlock = mmdp_default_block_search(pHandler->mh_stru, pFree))) {
-        mato_lock(pHandler->mh_deflock);
+        mato_lock(pHandler->defato);
 
         /* when no taker to take this block */
         if (!(--pBlock->mb_taker)) {
@@ -151,7 +143,7 @@ void mmdp_free(DMPH *pHandler, mpt_t *pFree)
             pHandler->mh_select = pBlock;
         }
         
-        mato_unlock(pHandler->mh_deflock);
+        mato_unlock(pHandler->defato);
     }
 }
 
@@ -175,7 +167,7 @@ void mmdp_free_pool(DMPH *pMfree)
         free(bigMov);
     }
 
-    mmdp_handler_set_empty(pMfree);
+    mmdp_set(pMfree);
 }
 
 
@@ -236,7 +228,7 @@ static mpt_t *mmdp_big_malloc(DMPH *hPoint, msize_t maSize)
     bigStru->mbb_start = (mpt_t *)((char *)bigStru + sizeof(DMPBB));
     bigStru->mbb_next = NULL;
 
-    mato_lock(hPoint->mh_biglock);
+    mato_lock(hPoint->bigato);
 
     bigStru->mbb_fore = NULL;
 
@@ -246,7 +238,7 @@ static mpt_t *mmdp_big_malloc(DMPH *hPoint, msize_t maSize)
     bigStru->mbb_next = hPoint->mh_big;
     hPoint->mh_big = bigStru;
 
-    mato_unlock(hPoint->mh_biglock);
+    mato_unlock(hPoint->bigato);
 
     return  bigStru->mbb_start;
 }
