@@ -4,7 +4,7 @@
 -*---------------------------------------------*/
 
 /*---------------------------------------------
- *     file: ato.h
+ *     file: satomic.h 
  *     creation time: 2016-07-11 12:57:45
  *     author: Muse 
 -*---------------------------------------------*/
@@ -39,8 +39,8 @@ typedef struct matos    MATOS;
  *            Part Three: Struct
 -*---------------------------------------------*/
 
-struct  matos {
-    int32_t cnt; 
+struct matos {
+    int     cnt; 
 };
 
 
@@ -49,31 +49,36 @@ struct  matos {
 -*---------------------------------------------*/
 
 #define mato_init(ato, set) \
-        ato.cnt = set;
+        ato.cnt = set
 
 #define mato_inc(ato) \
-        __sync_fetch_and_add(ato.cnt, 1)
+        __sync_fetch_and_add(&ato.cnt, 1)
 
 #define mato_add(ato, inc) \
-        __sync_fetch_and_add(ato.cnt, (inc))
+        __sync_fetch_and_add(&ato.cnt, (inc))
 
 #define mato_dec(ato) \
-        __sync_fetch_and_sub(ato.cnt, 1)
+        __sync_fetch_and_sub(&ato.cnt, 1)
 
 #define mato_sub(ato, sub) \
-        __sync_fetch_and_sub(ato.cnt, (sub))
+        __sync_fetch_and_sub(&ato.cnt, (sub))
 
 #define mato_inc_and_test(ato) \
-        ((__sync_fetch_and_sub(ato.cnt, 1) - 1) ? false : true)
+        ((__sync_fetch_and_sub(&ato.cnt, 1) - 1) ? false : true)
 
 #define mato_add_and_test(ato, inc) \
-        ((__sync_fetch_and_add(ato.cnt, (inc)) + inc) ? false : true)
+        ((__sync_fetch_and_add(&ato.cnt, (inc)) + inc) ? false : true)
 
 #define mato_dec_and_test(ato) \
-        ((__sync_fetch_and_sub(ato.cnt, 1) - 1) ? false : true)
+        ((__sync_fetch_and_sub(&ato.cnt, 1) - 1) ? false : true)
 
 #define mato_sub_and_test(ato, sub) \
-        ((__sync_fetch_and_sub(ato.cnt, (sub)) - sub) ? false : true)
+        ((__sync_fetch_and_sub(&ato.cnt, (sub)) - sub) ? false : true)
 
+#define mato_lock(ato) \
+        while (!mato_dec_and_test((ato))) \
+            mato_inc((ato));
 
-#endif
+#define mato_unlock(ato) \
+        mato_inc((ato))
+
