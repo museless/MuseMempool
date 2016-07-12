@@ -57,12 +57,12 @@
  *            Part Two: Local data
 -*---------------------------------------------*/
 
-static  mpt_t   *mmdp_big_malloc(DMPH *hPoint, msize_t maSize);
-static  mpt_t   *mmdp_default_malloc(DMPH *hStru, msize_t nMalloc);
+static  void   *_block_alloc(Mempool *pool, uint size);
+static  void   *_chunk_alloc(Mempool *hStru, msize_t nMalloc);
 
-static  DMPBB   *mmdp_big_search(DMPBB *hStru, mpt_t *pFind);
-static  DMPB    *mmdp_default_size_search(DMPH *pMph, msize_t nSize);
-static  DMPB    *mmdp_default_block_search(DMPB *begBlock, mpt_t *pLoct);
+static  Block  *_block_search(Block *hStru, void *pFind);
+static  Chunk  *_chunk_size_search(Mempool *pool, msize_t nSize);
+static  Chunk  *_chunk_search(Chunk *begBlock, void *pLoct);
 
 
 /*---------------------------------------------
@@ -75,49 +75,58 @@ static  DMPB    *mmdp_default_block_search(DMPB *begBlock, mpt_t *pLoct);
  *          5. mmdp_free_handler
  *          6. mmdp_free_all
  *          7. mmdp_reset_default
- *          8. mmdp_show_size
  *
 -*---------------------------------------------*/
 
 /*-----mmdp_create-----*/
-void mmdp_create(DMPH *pool, int border)
+bool mmdp_create(Musepool *pool, int border)
 {
-    int32_t remain;
+    if (!pool) {
+        errno = EINVAL;
+        return  false;
+    }
 
     mmdp_set(pool);
 
-    remain = (border >> 1) ? 1 : 0;
-    pool->mh_sizebor = (border < DEFAULT_BSIZE) ? DEFAULT_BSIZE : (((border >>  1) + remain) << 1);
+    pool->sizebor = (border < DEFAULT_BSIZE) ? 
+        DEFAULT_BSIZE : (((border >>  1) + ((border % 2) ? 1 : 0)) << 1);
 
-    mato_init(pool->bigato, 1);
-    mato_init(pool->defato, 1);
+    mato_init(pool->chunkatom, 1);
+    mato_init(pool->blockatom, 1);
+
+    return  true;
 }
 
 
 /*-----mmdp_malloc-----*/
-void *mmdp_malloc(DMPH *mHand, msize_t maSize)
+void *mmdp_malloc(Mempool *pool, uint size)
 {
-    mpt_t   *pMem;
+    if (!pool || size <= 0) {
+        errno = EINVAL;
+        return  NULL;
+    }
 
-    if (maSize > mHand->mh_sizebor)
-        return  mmdp_big_malloc(mHand, maSize);
+    if (size > pool->sizebor)
+        return  _block_alloc(pool, size);
 
-    mato_lock(mHand->defato);
-    pMem = mmdp_default_malloc(mHand, maSize);
-    mato_unlock(mHand->defato);
+    void   *addr;
 
-    return  pMem;
+    mato_lock(pool->chunkatom);
+    addr = _chunk_alloc(pool, size);
+    mato_unlock(pool->chunkatom);
+
+    return  addr;
 }
 
 
 /*-----mmdp_free-----*/
-void mmdp_free(DMPH *pHandler, mpt_t *pFree)
+void mmdp_free(Mempool *pHandler, void *pFree)
 {
-    DMPBB   *pBig, **bigPoint;
-    DMPB    *pBlock;
+    Block   *pBig, **bigPoint;
+    Chunk    *pBlock;
 
-    if ((pBig = mmdp_big_search(pHandler->mh_big, pFree))) {
-        mato_lock(pHandler->bigato);
+    if ((pBig = _block_search(pHandler->mh_big, pFree))) {
+        mato_lock(pHandler->blockatom);
 
         bigPoint = (pBig == pHandler->mh_big) ? &pHandler->mh_big : &pBig->mbb_fore;
         *bigPoint = pBig->mbb_next;
@@ -125,13 +134,13 @@ void mmdp_free(DMPH *pHandler, mpt_t *pFree)
         if (pBig->mbb_fore)
             pBig->mbb_fore->mbb_next = pBig->mbb_next;
 
-        mato_unlock(pHandler->bigato);
+        mato_unlock(pHandler->blockatom);
         free(pBig);
 
         return;
     }
 
-    if ((pBlock = mmdp_default_block_search(pHandler->mh_stru, pFree))) {
+    if ((pBlock = _chunk_search(pHandler->mh_stru, pFree))) {
         mato_lock(pHandler->defato);
 
         /* when no taker to take this block */
@@ -149,10 +158,10 @@ void mmdp_free(DMPH *pHandler, mpt_t *pFree)
 
 
 /*-----mmdp_free_pool-----*/
-void mmdp_free_pool(DMPH *pMfree)
+void mmdp_free_pool(Mempool *pMfree)
 {
     /* release smallchunk */
-    DMPB    *pBnext, *pBmov;
+    Chunk    *pBnext, *pBmov;
 
     for (pBmov = pMfree->mh_stru; pBmov; pBmov = pBnext) {
         pBnext = pBmov->mb_next;
@@ -160,7 +169,7 @@ void mmdp_free_pool(DMPH *pMfree)
     }
 
     /* release bigchunk */
-    DMPBB   *bigNext, *bigMov;
+    Block   *bigNext, *bigMov;
     
     for (bigMov = pMfree->mh_big; bigMov; bigMov = bigNext) {
         bigNext = bigMov->mbb_next;
@@ -172,14 +181,14 @@ void mmdp_free_pool(DMPH *pMfree)
 
 
 /*-----mmdp_free_handler-----*/
-void mmdp_free_handler(DMPH *pMfree)
+void mmdp_free_handler(Mempool *pMfree)
 {
     free(pMfree);
 }
 
 
 /*-----mmdp_free_all-----*/
-void mmdp_free_all(DMPH *pMfree)
+void mmdp_free_all(Mempool *pMfree)
 {
     mmdp_free_pool(pMfree);
     mmdp_free_handler(pMfree);
@@ -187,9 +196,9 @@ void mmdp_free_all(DMPH *pMfree)
 
 
 /*-----mmdp_reset_default-----*/
-void mmdp_reset_default(DMPH *pReset)
+void mmdp_reset_default(Mempool *pReset)
 {
-    DMPB    *pMov;
+    Chunk    *pMov;
 
     pReset->mh_select = NULL;
     
@@ -202,60 +211,51 @@ void mmdp_reset_default(DMPH *pReset)
 }
 
 
-/*-----mmdp_show_size-----*/
-int mmdp_show_size(DMPH *pMp)
-{
-    return  pMp->mh_sizebor;
-}
-
-
 /*---------------------------------------------
  *          Part Five: Block malloc
  *
- *          1. mmdp_big_malloc
- *          2. mmdp_default_malloc
+ *          1. _block_alloc
+ *          2. _chunk_alloc
  *
 -*---------------------------------------------*/
 
-/*-----mmdp_big_malloc-----*/
-static mpt_t *mmdp_big_malloc(DMPH *hPoint, msize_t maSize)
+/*-----_block_alloc-----*/
+void *_block_alloc(Mempool *pool, uint size)
 {
-    DMPBB   *bigStru;
+    Block   *block;
 
-    if ((bigStru = (DMPBB *)malloc(sizeof(DMPBB) + maSize)) == NULL)
+    if (!(addr = (Block *)malloc(sizeof(Block) + size)))
         return  NULL;
 
-    bigStru->mbb_start = (mpt_t *)((char *)bigStru + sizeof(DMPBB));
-    bigStru->mbb_next = NULL;
+    block->start = (void *)((char *)block + sizeof(Block));
+    block->next = block->fore = NULL;
 
-    mato_lock(hPoint->bigato);
+    mato_lock(pool->blockatom);
 
-    bigStru->mbb_fore = NULL;
+    if (pool->blocks)
+        pool->blocks->fore = block;
 
-    if (hPoint->mh_big)
-        hPoint->mh_big->mbb_fore = bigStru;
+    block->next = pool->chunks;
+    pool->chunks = block;
 
-    bigStru->mbb_next = hPoint->mh_big;
-    hPoint->mh_big = bigStru;
+    mato_unlock(pool->blockatom);
 
-    mato_unlock(hPoint->bigato);
-
-    return  bigStru->mbb_start;
+    return  block->start;
 }
 
 
-/*-----mmdp_default_malloc-----*/
-static mpt_t *mmdp_default_malloc(DMPH *hStru, msize_t nMalloc)
+/*-----_chunk_alloc-----*/
+static void *_chunk_alloc(Mempool *hStru, msize_t nMalloc)
 {
-    DMPB    *pBody;
-    mpt_t   *pRet;
+    Chunk    *pBody;
+    void   *pRet;
 
-    if (!(pBody = mmdp_default_size_search(hStru, nMalloc))) {
-        if (!(pBody = (DMPB *)malloc(sizeof(DMPB) + hStru->mh_sizebor)))
+    if (!(pBody = _chunk_size_search(hStru, nMalloc))) {
+        if (!(pBody = (Chunk *)malloc(sizeof(Chunk) + hStru->mh_sizebor)))
             return  NULL;
         
         /* make start point and end point link to memory chunk */
-        pBody->mb_start = pBody->mb_end = (mpt_t *)((char *)pBody + sizeof(DMPB));
+        pBody->mb_start = pBody->mb_end = (void *)((char *)pBody + sizeof(Chunk));
         
         pBody->mb_left = pBody->mb_size = hStru->mh_sizebor;
         pBody->mb_taker = 0;
@@ -283,17 +283,17 @@ static mpt_t *mmdp_default_malloc(DMPH *hStru, msize_t nMalloc)
 /*---------------------------------------------
  *          Part Six: Block search
  *
- *          1. mmdp_big_search
- *          2. mmdp_default_size_search
- *          3. mmdp_default_block_search
+ *          1. _block_search
+ *          2. _chunk_size_search
+ *          3. _chunk_search
  *
 -*---------------------------------------------*/
 
-/*-----mmdp_big_search-----*/
-DMPBB *mmdp_big_search(DMPBB *hStru, mpt_t *pFind)
+/*-----_block_search-----*/
+Block *_block_search(Block *block, void *pFind)
 {
     while (hStru) {
-        if (hStru->mbb_start == pFind)
+        if (hStru->start == pFind)
             return  hStru;
 
         hStru = hStru->mbb_next;
@@ -303,10 +303,10 @@ DMPBB *mmdp_big_search(DMPBB *hStru, mpt_t *pFind)
 }
 
 
-/*-----mmdp_default_size_search-----*/
-DMPB *mmdp_default_size_search(DMPH *pMph, msize_t nSize)
+/*-----_chunk_size_search-----*/
+Chunk *_chunk_size_search(Mempool *pool, msize_t nSize)
 {
-    DMPB    **pForward = &pMph->mh_select;
+    Chunk    **pForward = &pool->mh_select;
     
     while (*pForward) {
         if ((*pForward)->mb_left >= nSize)
@@ -319,8 +319,8 @@ DMPB *mmdp_default_size_search(DMPH *pMph, msize_t nSize)
 }
 
 
-/*-----mmdp_default_block_search-----*/
-DMPB *mmdp_default_block_search(DMPB *begBlock, mpt_t *pLoct)
+/*-----_chunk_search-----*/
+Chunk *_chunk_search(Chunk *begBlock, void *pLoct)
 {
     for (; begBlock; begBlock = begBlock->mb_next) {
         if (pLoct >= begBlock->mb_start && pLoct <= mmdp_block_end_adrr(begBlock))
