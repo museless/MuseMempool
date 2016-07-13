@@ -32,13 +32,22 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <errno.h>
+
+#define __USE_MISC
+#include <sys/types.h>
+
+#include "satomic.h"
+
 
 /*---------------------------------------------
  *            Part One: Define
 -*---------------------------------------------*/
 
-#define DEFAULT_BSIZE       0x1000
-#define DEFALUT_MAX_BODY    0x10000 
+#define DEF_CHUNKSIZE   0x1000
+#define DEF_MAX_BODY    0x10000 
+
+#define DEF_CAP         0x4
 
 
 /*---------------------------------------------
@@ -56,28 +65,32 @@ typedef struct block        Block;
 -*---------------------------------------------*/
 
 struct muse_mempool {
-    Chunk  *chunks;
-    Chunk  *current;
+    Chunk **chunks;
     Chunk  *free_chunk;
+    Chunk  *current;
 
     Block  *blocks;
+    Block  *last;
 
     uint    nchunk;
     uint    capablity;
+
     uint    sizebor;
 
     MATOS   blockatom, chunkatom;
 };
 
 struct chunk {
-    void   *start;
-    void   *end;
-
     Chunk  *next_free;
+
+    void   *start;
 
     uint    rest;
     uint    counter;
 };
+
+#define PCHUNK_LEN  sizeof(Chunk *)
+
 
 struct block {
     void   *start;
@@ -94,8 +107,5 @@ void   *mmdp_malloc(Mempool *pool, uint size);
 void    mmdp_free(Mempool *pool, void *addr);
 
 void    mmdp_free_pool(Mempool *pool);
-void    mmdp_free_handler(DMPH *pMfree);
-
-void    mmdp_reset_default(DMPH *pReset);
 
 

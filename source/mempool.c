@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-11 15:23:03
+ *     modification time: 2016-07-13 17:05:03
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -17,9 +17,10 @@
  *       Part Two:   Local data
  *       Part Three: Local function
  *
- *       Part Four:  Mempool port
+ *       Part Four:  Mempool api
  *       Part Five:  Block malloc
  *       Part Six:   Block search
+ *       Part Seven: Chunks control
  *
 -*---------------------------------------------*/
 
@@ -27,29 +28,28 @@
  *             Part Zero: Include
 -*---------------------------------------------*/
 
-#include "mmdpool.h"
-#include "satomic.h"
+#include "mempool.h"
 
 
 /*---------------------------------------------
  *             Part One: Define
 -*---------------------------------------------*/
 
-#define mmdp_set(hStru) { \
-    hStru->mh_big = NULL; \
-    hStru->mh_stru = hStru->mh_select = NULL; \
-    hStru->mh_cnt = 0; \
+#define _pool_set(pool) { \
+    (pool)->free_chunk = pool->current = NULL; \
+    (pool)->blocks = pool->last = NULL; \
+    (pool)->nchunk = 0; \
+    (pool)->capablity = DEF_CAP; \
+    mato_init((pool)->chunkatom, 1); \
+    mato_init((pool)->blockatom, 1); \
 }
 
 
-#define mmdp_block_end_adrr(pMpool) \
-    (pMpool->mb_start + pMpool->mb_size)
-
-
-#define mmdp_reset_block(pHandler) { \
-    pHandler->mb_end = pHandler->mb_start; \
-    pHandler->mb_left = pHandler->mb_size; \
-    pHandler->mb_taker = 0; \
+#define _chunk_reset(chunk, border) { \
+    (chunk)->start = (char *)chunk + sizeof(Chunk); \
+    (chunk)->next_free = NULL; \
+    (chunk)->rest = border; \
+    (chunk)->counter = 0; \
 }
 
 
@@ -57,42 +57,42 @@
  *            Part Two: Local data
 -*---------------------------------------------*/
 
-static  void   *_block_alloc(Mempool *pool, uint size);
-static  void   *_chunk_alloc(Mempool *hStru, msize_t nMalloc);
+static void    *_block_alloc(Mempool *pool, uint size);
 
-static  Block  *_block_search(Block *hStru, void *pFind);
-static  Chunk  *_chunk_size_search(Mempool *pool, msize_t nSize);
-static  Chunk  *_chunk_search(Chunk *begBlock, void *pLoct);
+static void    *_chunk_alloc(Mempool *pool, uint size);
+static void    *_chunk_divide(Chunk *chunk, uint size, uint border);
+static void    *_chunk_new(Mempool *pool, uint size);
+
+static Block   *_block_search(Block *block, void *addr);
+
+static void     _chunk_record(Mempool *pool, void *chunk);
 
 
 /*---------------------------------------------
- *          Part Four: Mempool port
+ *          Part Four: Mempool api 
  *
  *          1. mmdp_create
  *          2. mmdp_malloc
  *          3. mmdp_free
  *          4. mmdp_free_pool
- *          5. mmdp_free_handler
  *          6. mmdp_free_all
- *          7. mmdp_reset_default
+ *          7. mmdp_reset_chunk
  *
 -*---------------------------------------------*/
 
 /*-----mmdp_create-----*/
-bool mmdp_create(Musepool *pool, int border)
+bool mmdp_create(Mempool *pool, int border)
 {
     if (!pool) {
         errno = EINVAL;
         return  false;
     }
 
-    mmdp_set(pool);
+    if (!(pool->chunks = calloc(DEF_CAP, PCHUNK_LEN)))
+        return  false;
 
-    pool->sizebor = (border < DEFAULT_BSIZE) ? 
-        DEFAULT_BSIZE : (((border >>  1) + ((border % 2) ? 1 : 0)) << 1);
-
-    mato_init(pool->chunkatom, 1);
-    mato_init(pool->blockatom, 1);
+    pool->sizebor = (border < DEF_CHUNKSIZE) ? DEF_CHUNKSIZE : border;
+    _pool_set(pool);
 
     return  true;
 }
@@ -120,93 +120,37 @@ void *mmdp_malloc(Mempool *pool, uint size)
 
 
 /*-----mmdp_free-----*/
-void mmdp_free(Mempool *pHandler, void *pFree)
+void mmdp_free(Mempool *pool, void *add)
 {
-    Block   *pBig, **bigPoint;
-    Chunk    *pBlock;
-
-    if ((pBig = _block_search(pHandler->mh_big, pFree))) {
-        mato_lock(pHandler->blockatom);
-
-        bigPoint = (pBig == pHandler->mh_big) ? &pHandler->mh_big : &pBig->mbb_fore;
-        *bigPoint = pBig->mbb_next;
-
-        if (pBig->mbb_fore)
-            pBig->mbb_fore->mbb_next = pBig->mbb_next;
-
-        mato_unlock(pHandler->blockatom);
-        free(pBig);
-
-        return;
-    }
-
-    if ((pBlock = _chunk_search(pHandler->mh_stru, pFree))) {
-        mato_lock(pHandler->defato);
-
-        /* when no taker to take this block */
-        if (!(--pBlock->mb_taker)) {
-            mmdp_reset_block(pBlock);
-            
-            /* link it to the select list */
-            pBlock->mb_nselec = pHandler->mh_select;
-            pHandler->mh_select = pBlock;
-        }
-        
-        mato_unlock(pHandler->defato);
-    }
 }
 
 
 /*-----mmdp_free_pool-----*/
-void mmdp_free_pool(Mempool *pMfree)
+void mmdp_free_pool(Mempool *pool)
 {
-    /* release smallchunk */
-    Chunk    *pBnext, *pBmov;
-
-    for (pBmov = pMfree->mh_stru; pBmov; pBmov = pBnext) {
-        pBnext = pBmov->mb_next;
-        free(pBmov);
-    }
-
-    /* release bigchunk */
-    Block   *bigNext, *bigMov;
-    
-    for (bigMov = pMfree->mh_big; bigMov; bigMov = bigNext) {
-        bigNext = bigMov->mbb_next;
-        free(bigMov);
-    }
-
-    mmdp_set(pMfree);
-}
-
-
-/*-----mmdp_free_handler-----*/
-void mmdp_free_handler(Mempool *pMfree)
-{
-    free(pMfree);
+    _pool_set(pool);
 }
 
 
 /*-----mmdp_free_all-----*/
-void mmdp_free_all(Mempool *pMfree)
+void mmdp_free_all(Mempool *pool)
 {
-    mmdp_free_pool(pMfree);
-    mmdp_free_handler(pMfree);
+    mmdp_free_pool(pool);
 }
 
 
-/*-----mmdp_reset_default-----*/
-void mmdp_reset_default(Mempool *pReset)
+/*-----mmdp_reset_chunk-----*/
+void mmdp_reset_chunk(Mempool *pool)
 {
-    Chunk    *pMov;
+    pool->free_chunk = NULL;
 
-    pReset->mh_select = NULL;
-    
-    for (pMov = pReset->mh_stru; pMov; pMov = pMov->mb_next) {
-        mmdp_reset_block(pMov);
-        
-        pMov->mb_nselec = pReset->mh_select;
-        pReset->mh_select = pMov;
+    for (uint index = 0; index < pool->nchunk; index++) {
+        Chunk  *chunk = pool->chunks[index];
+
+        _chunk_reset(chunk, pool->sizebor);
+
+        chunk->next_free = pool->free_chunk;
+        pool->free_chunk = chunk->next_free;
     }
 }
 
@@ -216,15 +160,17 @@ void mmdp_reset_default(Mempool *pReset)
  *
  *          1. _block_alloc
  *          2. _chunk_alloc
+ *          3. _chunk_divide
+ *          4. _chunk_new
  *
 -*---------------------------------------------*/
 
 /*-----_block_alloc-----*/
 void *_block_alloc(Mempool *pool, uint size)
 {
-    Block   *block;
+    Block  *block;
 
-    if (!(addr = (Block *)malloc(sizeof(Block) + size)))
+    if (!(block = (Block *)malloc(sizeof(Block) + size)))
         return  NULL;
 
     block->start = (void *)((char *)block + sizeof(Block));
@@ -235,8 +181,8 @@ void *_block_alloc(Mempool *pool, uint size)
     if (pool->blocks)
         pool->blocks->fore = block;
 
-    block->next = pool->chunks;
-    pool->chunks = block;
+    block->next = pool->blocks;
+    pool->blocks = block;
 
     mato_unlock(pool->blockatom);
 
@@ -245,38 +191,61 @@ void *_block_alloc(Mempool *pool, uint size)
 
 
 /*-----_chunk_alloc-----*/
-static void *_chunk_alloc(Mempool *hStru, msize_t nMalloc)
+void *_chunk_alloc(Mempool *pool, uint size)
 {
-    Chunk    *pBody;
-    void   *pRet;
-
-    if (!(pBody = _chunk_size_search(hStru, nMalloc))) {
-        if (!(pBody = (Chunk *)malloc(sizeof(Chunk) + hStru->mh_sizebor)))
-            return  NULL;
-        
-        /* make start point and end point link to memory chunk */
-        pBody->mb_start = pBody->mb_end = (void *)((char *)pBody + sizeof(Chunk));
-        
-        pBody->mb_left = pBody->mb_size = hStru->mh_sizebor;
-        pBody->mb_taker = 0;
-        
-        /* link to stru list */
-        pBody->mb_next = hStru->mh_stru;
-        hStru->mh_stru = pBody;
-
-        /* link to select list */
-        pBody->mb_nselec = hStru->mh_select;
-        hStru->mh_select = pBody;
-        
-        hStru->mh_cnt++;
+    if (!pool->current && pool->free_chunk) {
+        pool->current = pool->free_chunk;
+        pool->free_chunk = pool->current->next_free;
+        pool->current->next_free = NULL;
     }
 
-    pRet = pBody->mb_end;
-    pBody->mb_end += nMalloc;
-    pBody->mb_left -= nMalloc;
-    pBody->mb_taker++;
+    if (pool->current && pool->current->rest >= size)
+        return  _chunk_divide(pool->current, size, pool->sizebor);
 
-    return  pRet;
+    return  _chunk_new(pool, size);
+}
+
+
+/*-----_chunk_divide-----*/
+void *_chunk_divide(Chunk *chunk, uint size, uint border)
+{
+    void   *addr = (char *)chunk->start + (border - chunk->rest);
+
+    chunk->rest -= size;
+    chunk->counter += 1;
+
+    return  addr;
+}
+
+
+/*-----_chunk_new-----*/
+void *_chunk_new(Mempool *pool, uint size)
+{
+    if (pool->nchunk == pool->capablity) {
+        uint    new_cap;
+
+        if (!__builtin_mul_overflow(pool->capablity, 2, &new_cap)) {
+            errno = ERANGE;
+            return  NULL;
+        }
+
+        if (!(pool->chunks = realloc(pool->chunks, new_cap * PCHUNK_LEN)))
+            return  NULL;
+
+        memset(pool->chunks + pool->capablity, 0, pool->capablity * PCHUNK_LEN);
+        pool->capablity = new_cap;
+    }
+
+    uint    border = pool->sizebor;
+    Chunk  *new_chunk = malloc(sizeof(Chunk) + border);
+
+    if (!new_chunk)
+        return  NULL;
+
+    _chunk_reset(new_chunk, border);
+    _chunk_record(pool, new_chunk);
+
+    return  _chunk_divide(new_chunk, size, border);
 }
 
 
@@ -284,49 +253,52 @@ static void *_chunk_alloc(Mempool *hStru, msize_t nMalloc)
  *          Part Six: Block search
  *
  *          1. _block_search
- *          2. _chunk_size_search
- *          3. _chunk_search
  *
 -*---------------------------------------------*/
 
 /*-----_block_search-----*/
-Block *_block_search(Block *block, void *pFind)
+Block *_block_search(Block *block, void *addr)
 {
-    while (hStru) {
-        if (hStru->start == pFind)
-            return  hStru;
-
-        hStru = hStru->mbb_next;
+    for (; block; block = block->next) {
+        if (block->start == addr)
+            return  block;
     }
 
     return  NULL;
 }
 
 
-/*-----_chunk_size_search-----*/
-Chunk *_chunk_size_search(Mempool *pool, msize_t nSize)
+/*---------------------------------------------
+ *          Part Seven: Chunk control
+ *
+ *          1. _chunk_record 
+ *
+-*---------------------------------------------*/
+
+/*-----_chunk_record-----*/
+void _chunk_record(Mempool *pool, void *chunk)
 {
-    Chunk    **pForward = &pool->mh_select;
-    
-    while (*pForward) {
-        if ((*pForward)->mb_left >= nSize)
-            return  (*pForward);
-        
-        *pForward = (*pForward)->mb_nselec;
+    uint    index = pool->nchunk;
+
+    pool->nchunk += 1;
+
+    if (!pool->chunks[0]) {
+        pool->chunks[0] = chunk;
+        return;
     }
 
-    return  NULL;
-}
-
-
-/*-----_chunk_search-----*/
-Chunk *_chunk_search(Chunk *begBlock, void *pLoct)
-{
-    for (; begBlock; begBlock = begBlock->mb_next) {
-        if (pLoct >= begBlock->mb_start && pLoct <= mmdp_block_end_adrr(begBlock))
-            return  begBlock;
+    if ((char *)chunk > (char *)pool->chunks[index - 1]) {
+        pool->chunks[index] = chunk;
+        return;
     }
 
-    return  NULL;
+    uint    offset = 0;
+
+    for (; offset < index; offset++) {
+        if ((char *)chunk < (char *)pool->chunks[offset]) {
+            memmove(&pool->chunks[offset], &pool->chunks[offset + 1], (index - offset) * PCHUNK_LEN);
+            pool->chunks[offset] = chunk;
+        }
+    }
 }
 
