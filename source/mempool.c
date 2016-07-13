@@ -242,6 +242,8 @@ void *_chunk_new(Mempool *pool, uint size)
     if (!new_chunk)
         return  NULL;
 
+    pool->current = new_chunk;
+
     _chunk_reset(new_chunk, border);
     _chunk_record(pool, new_chunk);
 
@@ -295,9 +297,12 @@ void _chunk_record(Mempool *pool, void *chunk)
     uint    offset = 0;
 
     for (; offset < index; offset++) {
-        if ((char *)chunk < (char *)pool->chunks[offset]) {
-            memmove(&pool->chunks[offset], &pool->chunks[offset + 1], (index - offset) * PCHUNK_LEN);
+        Chunk **this = pool->chunks;
+
+        if ((char *)chunk < (char *)this[offset]) {
+            memmove(&this[offset + 1], &this[offset], (index - offset) * PCHUNK_LEN);
             pool->chunks[offset] = chunk;
+            return;
         }
     }
 }

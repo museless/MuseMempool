@@ -14,12 +14,27 @@
 
 int main(void)
 {
-    MATOS   ato;
+    Mempool  pool;
+    char     buff[4096 + sizeof(Chunk)];
+    Chunk   *ptr = (Chunk *)buff;
 
-    mato_init(ato, 1);
+    ptr->next_free = NULL;
+    ptr->start = buff + sizeof(Chunk);
+    ptr->rest = 4096;
+    ptr->counter = 0;
 
-    mato_lock(ato);
-    mato_unlock(ato);
+    if (!mmdp_create(&pool, 4096)) {
+        perror("mmdp_create");
+        return  -1;
+    }
+
+    mmdp_malloc(&pool, 4095);
+    pool.chunks[1] = ptr;
+    pool.nchunk = 2;
+    pool.current = ptr;
+
+    mmdp_malloc(&pool, 4095);
+    mmdp_malloc(&pool, 4095);
 
     return  -1;
 }
