@@ -10,7 +10,7 @@
 -*---------------------------------------------*/
 
 /*---------------------------------------------
- *       Source file content Seven part
+ *       Source file content Eight part
  *
  *       Part Zero:  Include
  *       Part One:   Define 
@@ -18,8 +18,8 @@
  *       Part Three: Local function
  *
  *       Part Four:  Mempool api
- *       Part Five:  Block malloc
- *       Part Six:   Block search
+ *       Part Five:  Memory control 
+ *       Part Six:   Memory search
  *       Part Seven: Chunks control
  *
 -*---------------------------------------------*/
@@ -66,8 +66,10 @@ static void    *_block_alloc(Mempool *pool, uint size);
 static void    *_chunk_alloc(Mempool *pool, uint size);
 static void    *_chunk_divide(Chunk *chunk, uint size, uint border);
 static void    *_chunk_new(Mempool *pool, uint size);
+static bool     _block_free(Mempool *pool, void *addr);
 
 static Block   *_block_search(Block *block, void *addr);
+static Chunk   *_chunk_search(Mempool *pool, void *addr);
 
 static void     _chunk_record(Mempool *pool, void *chunk);
 
@@ -126,23 +128,32 @@ void *mmdp_malloc(Mempool *pool, uint size)
 /*-----mmdp_free-----*/
 void mmdp_free(Mempool *pool, void *addr)
 {
-    Block  *block;
+    bool    result;
 
-    if (!(block = _block_search(pool->blocks, addr))) {
-        if (block->fore)
-            block->fore->next = block->next;
+    mato_lock(pool->blockatom);
+    result = _block_free(pool, addr);
+    mato_unlock(pool->blockatom);
 
-        if (block->next)
-            block->next->fore = block->fore;
-
-        if (block == pool->blocks)
-            pool->blocks = block->next;
-
-        pool->nblock -= 1;
-        free(block);
-
+    if (result)
         return;
+
+    Chunk  *chunk;
+
+    mato_lock(pool->chunkatom);
+
+    if ((chunk = _chunk_search(pool, addr))) {
+        if (!(chunk->counter -= 1)) {
+            if (chunk != pool->current) {
+                chunk->next_free = pool->free_chunk;
+                pool->free_chunk = chunk;
+
+            } else {
+                chunk->rest = pool->sizebor;
+            }
+        }
     }
+
+    mato_unlock(pool->chunkatom);
 }
 
 
@@ -183,12 +194,13 @@ void mmdp_reset_chunk(Mempool *pool)
 
 
 /*---------------------------------------------
- *          Part Five: Block malloc
+ *          Part Five: Memory control
  *
  *          1. _block_alloc
  *          2. _chunk_alloc
  *          3. _chunk_divide
  *          4. _chunk_new
+ *          5. _block_free
  *
 -*---------------------------------------------*/
 
@@ -280,8 +292,32 @@ void *_chunk_new(Mempool *pool, uint size)
 }
 
 
+/*-----_block_free-----*/
+bool _block_free(Mempool *pool, void *addr)
+{
+    Block  *block = _block_search(pool->blocks, addr);
+
+    if (!block)
+        return  false;
+
+    if (block->fore)
+        block->fore->next = block->next;
+
+    if (block->next)
+        block->next->fore = block->fore;
+
+    if (block == pool->blocks)
+        pool->blocks = block->next;
+
+    pool->nblock -= 1;
+    free(block);
+
+    return  true;
+}
+
+
 /*---------------------------------------------
- *          Part Six: Block search
+ *          Part Six: Memory search
  *
  *          1. _block_search
  *          2. _chunk_search
@@ -305,12 +341,13 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
 {
     uint    head = 0, tail = pool->nchunk - 1, mid;
     Chunk **chunks = pool->chunks;
-    uint    border = pool->sizebor;
 
     if ((Chunk *)addr < chunks[head] || (Chunk *)addr > chunks[tail])
         return  NULL;
 
-    while (tail >= head) {
+    uint    border = pool->sizebor;
+
+    while (tail > head) {
         if (_addr_in_chunk(chunks[head], addr, border))
             return  chunks[head];
 
@@ -322,7 +359,7 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
         if (_addr_in_chunk(chunks[mid], addr, border))
             return  chunks[mid];
 
-        if (find > chunks[mid].start)
+        if (addr > chunks[mid]->start)
             head = mid;
         else
             tail = mid;
