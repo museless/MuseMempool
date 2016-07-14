@@ -1,12 +1,12 @@
 # flags #
-CC	= g++
-CFLAGS	= -g -Wall -I include/
+CC		= gcc
+CFLAGS	= -g -Wall -std=c99
 
 # elf #
-EXMDP	= mdpool
+EXMDP	= test
 
 # obj #
-OMDP	= src/mdp_test.cpp src/mdpool.cpp src/ato.cpp
+OMDP	= source/mempool.c source/example.c 
 
 # phony #
 .phony:	build

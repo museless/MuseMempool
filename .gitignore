@@ -1,3 +1,6 @@
+# Linux vim swp
+*.swp
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

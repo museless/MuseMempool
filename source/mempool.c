@@ -38,7 +38,7 @@
 #define _pool_set(pool) { \
     (pool)->free_chunk = pool->current = NULL; \
     (pool)->blocks = pool->last = NULL; \
-    (pool)->nchunk = 0; \
+    (pool)->nchunk = 0, (pool)->nblock = 0; \
     (pool)->capablity = DEF_CAP; \
     mato_init((pool)->chunkatom, 1); \
     mato_init((pool)->blockatom, 1); \
@@ -120,22 +120,45 @@ void *mmdp_malloc(Mempool *pool, uint size)
 
 
 /*-----mmdp_free-----*/
-void mmdp_free(Mempool *pool, void *add)
+void mmdp_free(Mempool *pool, void *addr)
 {
+    Block  *block;
+
+    if (!(block = _block_search(pool->blocks, addr))) {
+        if (block->fore)
+            block->fore->next = block->next;
+
+        if (block->next)
+            block->next->fore = block->fore;
+
+        if (block == pool->blocks)
+            pool->blocks = block->next;
+
+        pool->nblock -= 1;
+        free(block);
+
+        return;
+    }
 }
 
 
 /*-----mmdp_free_pool-----*/
 void mmdp_free_pool(Mempool *pool)
 {
+    Block  *next, *block = pool->blocks;
+
+    while (block) {
+        next = block->next;
+        free(block);
+        block = next;
+    }
+
+    for (int idx = 0; idx < pool->nchunk; idx++)
+        free(pool->chunks[idx]);
+
+    free(pool->chunks);
+
     _pool_set(pool);
-}
-
-
-/*-----mmdp_free_all-----*/
-void mmdp_free_all(Mempool *pool)
-{
-    mmdp_free_pool(pool);
 }
 
 
@@ -182,7 +205,9 @@ void *_block_alloc(Mempool *pool, uint size)
         pool->blocks->fore = block;
 
     block->next = pool->blocks;
+
     pool->blocks = block;
+    pool->nblock += 1;
 
     mato_unlock(pool->blockatom);
 

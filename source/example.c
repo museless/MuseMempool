@@ -15,13 +15,6 @@
 int main(void)
 {
     Mempool  pool;
-    char     buff[4096 + sizeof(Chunk)];
-    Chunk   *ptr = (Chunk *)buff;
-
-    ptr->next_free = NULL;
-    ptr->start = buff + sizeof(Chunk);
-    ptr->rest = 4096;
-    ptr->counter = 0;
 
     if (!mmdp_create(&pool, 4096)) {
         perror("mmdp_create");
@@ -29,12 +22,12 @@ int main(void)
     }
 
     mmdp_malloc(&pool, 4095);
-    pool.chunks[1] = ptr;
-    pool.nchunk = 2;
-    pool.current = ptr;
+    mmdp_malloc(&pool, 4095);
+    mmdp_malloc(&pool, 4095);
 
-    mmdp_malloc(&pool, 4095);
-    mmdp_malloc(&pool, 4095);
+    mmdp_malloc(&pool, 8192);
+
+    mmdp_free_pool(&pool);
 
     return  -1;
 }

@@ -75,6 +75,8 @@ struct muse_mempool {
     uint    nchunk;
     uint    capablity;
 
+    uint    nblock;
+
     uint    sizebor;
 
     MATOS   blockatom, chunkatom;
@@ -107,5 +109,4 @@ void   *mmdp_malloc(Mempool *pool, uint size);
 void    mmdp_free(Mempool *pool, void *addr);
 
 void    mmdp_free_pool(Mempool *pool);
-
 
