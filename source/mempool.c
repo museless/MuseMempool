@@ -53,6 +53,10 @@
 }
 
 
+#define _addr_in_chunk(chunk, addr, border) \
+    (addr > (chunk)->start && (char *)addr < (char *)(chunk)->start + border)
+
+
 /*---------------------------------------------
  *            Part Two: Local data
 -*---------------------------------------------*/
@@ -280,6 +284,7 @@ void *_chunk_new(Mempool *pool, uint size)
  *          Part Six: Block search
  *
  *          1. _block_search
+ *          2. _chunk_search
  *
 -*---------------------------------------------*/
 
@@ -289,6 +294,38 @@ Block *_block_search(Block *block, void *addr)
     for (; block; block = block->next) {
         if (block->start == addr)
             return  block;
+    }
+
+    return  NULL;
+}
+
+
+/*-----_chunk_search-----*/
+Chunk *_chunk_search(Mempool *pool, void *addr)
+{
+    uint    head = 0, tail = pool->nchunk - 1, mid;
+    Chunk **chunks = pool->chunks;
+    uint    border = pool->sizebor;
+
+    if ((Chunk *)addr < chunks[head] || (Chunk *)addr > chunks[tail])
+        return  NULL;
+
+    while (tail >= head) {
+        if (_addr_in_chunk(chunks[head], addr, border))
+            return  chunks[head];
+
+        if (_addr_in_chunk(chunks[tail], addr, border))
+            return  chunks[tail];
+
+        mid = (head + tail) >> 1;
+
+        if (_addr_in_chunk(chunks[mid], addr, border))
+            return  chunks[mid];
+
+        if (find > chunks[mid].start)
+            head = mid;
+        else
+            tail = mid;
     }
 
     return  NULL;
