@@ -34,7 +34,6 @@
 
 #include <errno.h>
 
-#define __USE_MISC
 #include <sys/types.h>
 
 #include "satomic.h"

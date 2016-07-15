@@ -24,7 +24,11 @@ int main(void)
         return  -1;
     }
 
-    struct timeval  end, start;
+    char   *addr = mmdp_malloc(&pool, 100);
+
+    mmdp_free(&pool, addr);
+
+    /* struct timeval  end, start;
     unsigned long   tma = 0, tmm = 0;
     int             size = 0;
 
@@ -46,7 +50,7 @@ int main(void)
         tmm += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
     }
 
-    printf("Malloc: %ld us - Musepool: %ld us\n", tma, tmm);
+    printf("Malloc: %ld us - Musepool: %ld us\n", tma, tmm); */
 
     mmdp_free_pool(&pool);
 

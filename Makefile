@@ -1,6 +1,6 @@
 # flags #
 CC		= gcc
-CFLAGS	= -g -Wall -std=c99
+CFLAGS	= -g -Wall -std=c99 -D_DEFAULT_SOURCE
 
 # elf #
 EXMDP	= test

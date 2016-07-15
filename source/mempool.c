@@ -54,11 +54,11 @@
 
 
 #define _addr_in_chunk(chunk, addr, border) \
-    (addr > (chunk)->start && (char *)addr < (char *)(chunk)->start + border)
+    (addr >= (chunk)->start && (char *)addr < ((char *)(chunk)->start) + border)
 
 
 /*---------------------------------------------
- *            Part Two: Local data
+ *          Part Three: Local function
 -*---------------------------------------------*/
 
 static void    *_block_alloc(Mempool *pool, uint size);
@@ -342,8 +342,14 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
     uint    head = 0, tail = pool->nchunk - 1, mid;
     Chunk **chunks = pool->chunks;
 
-    if ((Chunk *)addr < chunks[head] || (Chunk *)addr > chunks[tail])
+    if ((Chunk *)addr < chunks[head] || 
+        (char *)addr > (char *)chunks[tail]->start + pool->sizebor)
         return  NULL;
+
+    if (tail == 0) {
+        if (_addr_in_chunk(chunks[0], addr, border))
+            return  chunks[0];
+    }
 
     uint    border = pool->sizebor;
 
