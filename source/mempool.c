@@ -134,26 +134,25 @@ void mmdp_free(Mempool *pool, void *addr)
     result = _block_free(pool, addr);
     mato_unlock(pool->blockatom);
 
-    if (result)
-        return;
+    if (!result && pool->nchunk > 0) {
+        Chunk  *chunk;
 
-    Chunk  *chunk;
+        mato_lock(pool->chunkatom);
 
-    mato_lock(pool->chunkatom);
+        if ((chunk = _chunk_search(pool, addr))) {
+            if (!(chunk->counter -= 1)) {
+                if (chunk != pool->current) {
+                    chunk->next_free = pool->free_chunk;
+                    pool->free_chunk = chunk;
 
-    if ((chunk = _chunk_search(pool, addr))) {
-        if (!(chunk->counter -= 1)) {
-            if (chunk != pool->current) {
-                chunk->next_free = pool->free_chunk;
-                pool->free_chunk = chunk;
-
-            } else {
-                chunk->rest = pool->sizebor;
+                } else {
+                    chunk->rest = pool->sizebor;
+                }
             }
         }
-    }
 
-    mato_unlock(pool->chunkatom);
+        mato_unlock(pool->chunkatom);
+    }
 }
 
 
@@ -265,7 +264,7 @@ void *_chunk_new(Mempool *pool, uint size)
     if (pool->nchunk == pool->capablity) {
         uint    new_cap;
 
-        if (!__builtin_mul_overflow(pool->capablity, 2, &new_cap)) {
+        if (__builtin_mul_overflow(pool->capablity, 2, &new_cap)) {
             errno = ERANGE;
             return  NULL;
         }
@@ -339,19 +338,18 @@ Block *_block_search(Block *block, void *addr)
 /*-----_chunk_search-----*/
 Chunk *_chunk_search(Mempool *pool, void *addr)
 {
-    uint    head = 0, tail = pool->nchunk - 1, mid;
     Chunk **chunks = pool->chunks;
+    uint    head = 0, tail = pool->nchunk - 1, mid;
+    uint    border = pool->sizebor;
 
     if ((Chunk *)addr < chunks[head] || 
-        (char *)addr > (char *)chunks[tail]->start + pool->sizebor)
+        (char *)addr > (char *)chunks[tail]->start + border)
         return  NULL;
 
     if (tail == 0) {
         if (_addr_in_chunk(chunks[0], addr, border))
             return  chunks[0];
     }
-
-    uint    border = pool->sizebor;
 
     while (tail > head) {
         if (_addr_in_chunk(chunks[head], addr, border))
@@ -360,7 +358,7 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
         if (_addr_in_chunk(chunks[tail], addr, border))
             return  chunks[tail];
 
-        mid = (head + tail) >> 1;
+        mid = ((head + tail + 2) >> 1) - 1;
 
         if (_addr_in_chunk(chunks[mid], addr, border))
             return  chunks[mid];

@@ -19,38 +19,46 @@ int main(void)
 {
     Mempool  pool;
 
-    if (!mmdp_create(&pool, 8192)) {
+    if (!mmdp_create(&pool, 0x4000)) {
         perror("mmdp_create");
         return  -1;
     }
 
-    char   *addr = mmdp_malloc(&pool, 100);
-
-    mmdp_free(&pool, addr);
-
-    /* struct timeval  end, start;
+    struct timeval  end, start;
+    void           *ptr;
     unsigned long   tma = 0, tmm = 0;
     int             size = 0;
+    bool            need_free;
 
     srandom(time(NULL));
 
-    for (int idx = 0; idx < 100000; idx++) {
-        size = random() % 256 + 1;
+    for (int idx = 0; idx < 1000000; idx++) {
+        size = random() % 512 + 1;
+        need_free = false;
 
         gettimeofday(&start, NULL);
-        malloc(size);
+        ptr = malloc(size);
+
+        if (need_free)
+            free(ptr);
+
         gettimeofday(&end, NULL);
 
         tma += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
 
         gettimeofday(&start, NULL);
-        mmdp_malloc(&pool, size);
+        ptr = mmdp_malloc(&pool, size);
+
+        if (need_free)
+            mmdp_free(&pool, ptr);
+
         gettimeofday(&end, NULL);
 
         tmm += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
     }
 
-    printf("Malloc: %ld us - Musepool: %ld us\n", tma, tmm); */
+    printf("Chunk: %d\n", pool.nchunk);
+    printf("Malloc: %ld us - Musepool: %ld us\n", tma, tmm);
 
     mmdp_free_pool(&pool);
 
