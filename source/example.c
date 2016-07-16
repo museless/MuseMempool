@@ -33,11 +33,11 @@ int main(void)
     srandom(time(NULL));
 
     for (int idx = 0; idx < 1000000; idx++) {
-        size = random() % 512 + 1;
-        need_free = false;
+        size = random() % 1024 + 1;
+        need_free = true;
 
-        gettimeofday(&start, NULL);
         ptr = malloc(size);
+        gettimeofday(&start, NULL);
 
         if (need_free)
             free(ptr);
@@ -46,8 +46,8 @@ int main(void)
 
         tma += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
 
-        gettimeofday(&start, NULL);
         ptr = mmdp_malloc(&pool, size);
+        gettimeofday(&start, NULL);
 
         if (need_free)
             mmdp_free(&pool, ptr);

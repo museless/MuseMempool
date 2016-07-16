@@ -54,7 +54,7 @@
 
 
 #define _addr_in_chunk(chunk, addr, border) \
-    (addr >= (chunk)->start && (char *)addr < ((char *)(chunk)->start) + border)
+    (addr >= (chunk)->start && addr - (chunk)->start < border)
 
 
 /*---------------------------------------------
@@ -128,7 +128,7 @@ void *mmdp_malloc(Mempool *pool, uint size)
 /*-----mmdp_free-----*/
 void mmdp_free(Mempool *pool, void *addr)
 {
-    bool    result;
+    bool    result = false;
 
     mato_lock(pool->blockatom);
     result = _block_free(pool, addr);
