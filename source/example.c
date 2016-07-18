@@ -19,7 +19,7 @@ int main(void)
 {
     Mempool  pool;
 
-    if (!mmdp_create(&pool, 0x4000)) {
+    if (!mmdp_create(&pool, 0x8000)) {
         perror("mmdp_create");
         return  -1;
     }
@@ -32,26 +32,18 @@ int main(void)
 
     srandom(time(NULL));
 
-    for (int idx = 0; idx < 1000000; idx++) {
+    for (int idx = 0; idx < 100000; idx++) {
         size = random() % 1024 + 1;
         need_free = true;
 
-        ptr = malloc(size);
         gettimeofday(&start, NULL);
-
-        if (need_free)
-            free(ptr);
-
+        ptr = malloc(size);
         gettimeofday(&end, NULL);
 
         tma += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
 
-        ptr = mmdp_malloc(&pool, size);
         gettimeofday(&start, NULL);
-
-        if (need_free)
-            mmdp_free(&pool, ptr);
-
+        ptr = mmdp_malloc(&pool, size);
         gettimeofday(&end, NULL);
 
         tmm += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);

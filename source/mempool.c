@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-13 17:05:03
+ *     modification time: 2016-07-18 12:25:00
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -128,6 +128,9 @@ void *mmdp_malloc(Mempool *pool, uint size)
 /*-----mmdp_free-----*/
 void mmdp_free(Mempool *pool, void *addr)
 {
+    if (!pool)
+        return;
+
     bool    result = false;
 
     mato_lock(pool->blockatom);
@@ -159,6 +162,9 @@ void mmdp_free(Mempool *pool, void *addr)
 /*-----mmdp_free_pool-----*/
 void mmdp_free_pool(Mempool *pool)
 {
+    if (!pool)
+        return;
+
     Block  *next, *block = pool->blocks;
 
     while (block) {
@@ -179,6 +185,9 @@ void mmdp_free_pool(Mempool *pool)
 /*-----mmdp_reset_chunk-----*/
 void mmdp_reset_chunk(Mempool *pool)
 {
+    if (!pool)
+        return;
+
     pool->free_chunk = NULL;
 
     for (uint index = 0; index < pool->nchunk; index++) {

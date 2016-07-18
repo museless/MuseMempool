@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-11 12:57:45
+ *     modification time: 2016-07-18 12:20:45
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -32,16 +32,7 @@
  *            Part Two: Typedef
 -*---------------------------------------------*/
 
-typedef struct matos    MATOS;
-
-
-/*---------------------------------------------
- *            Part Three: Struct
--*---------------------------------------------*/
-
-struct matos {
-    int     cnt; 
-};
+typedef int MATOS;
 
 
 /*---------------------------------------------
@@ -49,31 +40,31 @@ struct matos {
 -*---------------------------------------------*/
 
 #define mato_init(ato, set) \
-        ato.cnt = set
+        ato = set
 
 #define mato_inc(ato) \
-        __sync_fetch_and_add(&ato.cnt, 1)
+        __sync_fetch_and_add(&ato, 1)
 
 #define mato_add(ato, inc) \
-        __sync_fetch_and_add(&ato.cnt, (inc))
+        __sync_fetch_and_add(&ato, (inc))
 
 #define mato_dec(ato) \
-        __sync_fetch_and_sub(&ato.cnt, 1)
+        __sync_fetch_and_sub(&ato, 1)
 
 #define mato_sub(ato, sub) \
-        __sync_fetch_and_sub(&ato.cnt, (sub))
+        __sync_fetch_and_sub(&ato, (sub))
 
 #define mato_inc_and_test(ato) \
-        ((__sync_fetch_and_sub(&ato.cnt, 1) - 1) ? false : true)
+        ((__sync_fetch_and_sub(&ato, 1) - 1) ? false : true)
 
 #define mato_add_and_test(ato, inc) \
-        ((__sync_fetch_and_add(&ato.cnt, (inc)) + inc) ? false : true)
+        ((__sync_fetch_and_add(&ato, (inc)) + inc) ? false : true)
 
 #define mato_dec_and_test(ato) \
-        ((__sync_fetch_and_sub(&ato.cnt, 1) - 1) ? false : true)
+        ((__sync_fetch_and_sub(&ato, 1) - 1) ? false : true)
 
 #define mato_sub_and_test(ato, sub) \
-        ((__sync_fetch_and_sub(&ato.cnt, (sub)) - sub) ? false : true)
+        ((__sync_fetch_and_sub(&ato, (sub)) - sub) ? false : true)
 
 #define mato_lock(ato) \
         while (!mato_dec_and_test((ato))) \
