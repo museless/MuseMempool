@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-18 12:25:00
+ *     modification time: 2016-09-29 10:35:00
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -54,7 +54,7 @@
 
 
 #define _addr_in_chunk(chunk, addr, border) \
-    (addr >= (chunk)->start && addr - (chunk)->start < border)
+    (((addr) >= (chunk)->start && (addr) - (chunk)->start < border))
 
 
 /*---------------------------------------------
@@ -367,7 +367,7 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
         if (_addr_in_chunk(chunks[tail], addr, border))
             return  chunks[tail];
 
-        mid = ((head + tail + 2) >> 1) - 1;
+        mid = (head + tail) >> 1;
 
         if (_addr_in_chunk(chunks[mid], addr, border))
             return  chunks[mid];
@@ -406,13 +406,13 @@ void _chunk_record(Mempool *pool, void *chunk)
         return;
     }
 
-    uint    offset = 0;
-
-    for (; offset < index; offset++) {
+    for (uint offset = 0; offset < index; offset++) {
         Chunk **this = pool->chunks;
 
         if ((char *)chunk < (char *)this[offset]) {
-            memmove(&this[offset + 1], &this[offset], (index - offset) * PCHUNK_LEN);
+            memmove(&this[offset + 1], 
+                &this[offset], (index - offset) * PCHUNK_LEN);
+
             pool->chunks[offset] = chunk;
             return;
         }

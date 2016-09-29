@@ -15,6 +15,10 @@
 #include <sys/time.h>
 
 
+#define TIME_DIFF(s, e) \
+    ((e.tv_sec * 1000000 + e.tv_usec) - (s.tv_sec * 1000000 + s.tv_usec))
+
+
 int main(void)
 {
     Mempool  pool;
@@ -24,29 +28,43 @@ int main(void)
         return  -1;
     }
 
+    void __attribute__ ((unused))  *ptr;
+    bool __attribute__ ((unused))   need_free = false;
+
     struct timeval  end, start;
-    void           *ptr;
     unsigned long   tma = 0, tmm = 0;
-    int             size = 0;
-    bool            need_free;
+    int32_t         size = 0;
 
     srandom(time(NULL));
 
-    for (int idx = 0; idx < 100000; idx++) {
-        size = random() % 1024 + 1;
-        need_free = true;
+    for (int idx = 0; idx < 1000000; idx++) {
+        size = random() % 2048 + 1;
+        //printf("Size: %d\n", size);
+        if (size > 1024)
+            need_free = true;
 
         gettimeofday(&start, NULL);
-        ptr = malloc(size);
+
+        if (!(ptr = malloc(size)))
+            perror("malloc");
+
+        if (need_free)
+            free(ptr);
+
         gettimeofday(&end, NULL);
 
-        tma += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+        tma += TIME_DIFF(start, end); 
 
         gettimeofday(&start, NULL);
         ptr = mmdp_malloc(&pool, size);
+
+        if (need_free)
+            mmdp_free(&pool, ptr);
+
         gettimeofday(&end, NULL);
 
-        tmm += (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+        tmm += TIME_DIFF(start, end);
+        need_free = false;
     }
 
     printf("Chunk: %d\n", pool.nchunk);
