@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-18 12:25:00
+ *     modification time: 2016-10-28 01:25:00
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -348,7 +348,7 @@ Block *_block_search(Block *block, void *addr)
 Chunk *_chunk_search(Mempool *pool, void *addr)
 {
     Chunk **chunks = pool->chunks;
-    uint    head = 0, tail = pool->nchunk - 1, mid;
+    uint    head = 0, tail = pool->nchunk - 1, mid = ((head + tail) >> 1);
     uint    border = pool->sizebor;
 
     if ((Chunk *)addr < chunks[head] || 
@@ -361,21 +361,20 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
     }
 
     while (tail > head) {
-        if (_addr_in_chunk(chunks[head], addr, border))
-            return  chunks[head];
-
-        if (_addr_in_chunk(chunks[tail], addr, border))
-            return  chunks[tail];
-
-        mid = ((head + tail + 2) >> 1) - 1;
-
         if (_addr_in_chunk(chunks[mid], addr, border))
             return  chunks[mid];
 
-        if (addr > chunks[mid]->start)
-            head = mid;
-        else
+        if ((char *)addr < (char *)chunks[mid]) {
             tail = mid;
+
+        } else if ((char *)addr > (char *)(chunks[mid]->start + border)) {
+            head = mid + 1;
+
+        } else {
+            break;
+        }
+
+        mid = (head + tail) >> 1;
     }
 
     return  NULL;
