@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-07-12 18:29:21
+ *     modification time: 2016-10-28 09:30:21
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -15,8 +15,33 @@
 #include <sys/time.h>
 
 
+/* define */
 #define TIME_DIFF(s, e) \
     ((e.tv_sec * 1000000 + e.tv_usec) - (s.tv_sec * 1000000 + s.tv_usec))
+
+#define LOG_MEMORY(log, addr, idx) \
+    do { \
+        log[idx].ptr = addr; \
+        log[idx].is_free = false; \
+    } while (0)
+
+#define TIMES   0x4000
+
+
+/* typedef */
+typedef struct memlog {
+    char   *ptr;
+    bool    is_free;
+
+} Memlog;
+
+
+/* function */
+static void log_memory(Memlog *log, char *addr);
+
+
+/* data */
+static Memlog   mallocSave[TIMES], museSave[TIMES];
 
 
 int main(void)
@@ -37,7 +62,7 @@ int main(void)
 
     srandom(time(NULL));
 
-    for (int idx = 0; idx < 100000; idx++) {
+    for (int idx = 0; idx < TIMES; idx++) {
         size = random() % 10240 + 1;
         need_free = (size < 2048);
 
@@ -51,7 +76,7 @@ int main(void)
 
         gettimeofday(&end, NULL);
 
-        tma += TIME_DIFF(start, end); 
+        tma += TIME_DIFF(start, end);
 
         gettimeofday(&start, NULL);
         ptr = mmdp_malloc(&pool, size);
@@ -71,5 +96,11 @@ int main(void)
     mmdp_free_pool(&pool);
 
     return  -1;
+}
+
+
+void log_memory(Memlog *log, char *addr, )
+{
+
 }
 

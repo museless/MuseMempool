@@ -1,9 +1,5 @@
 /*---------------------------------------------
-<<<<<<< HEAD
- *     modification time: 2016-10-28 01:25:00
-=======
- *     modification time: 2016-09-29 10:35:00
->>>>>>> fce3931026b155d4826608795ea486f27c453a6d
+ *     modification time: 2016-10-28 09:25:00
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -359,10 +355,11 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
         (char *)addr > (char *)chunks[tail]->start + border)
         return  NULL;
 
-    if (tail == 0) {
-        if (_addr_in_chunk(chunks[0], addr, border))
-            return  chunks[0];
-    }
+    if (tail == 0)
+        return  (_addr_in_chunk(chunks[0], addr, border)) ? chunks[0] : NULL; 
+
+    if (_addr_in_chunk(chunks[tail], addr, border))
+        return  chunks[tail];
 
     while (tail > head) {
         if (_addr_in_chunk(chunks[mid], addr, border))
