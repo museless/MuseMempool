@@ -25,7 +25,26 @@
         log[idx].is_free = false; \
     } while (0)
 
-#define TIMES   0x4000
+#define TIMES   0xC000
+
+#define ALLOC(addr, alloctor, freer, saver, timer) \
+    do { \
+        gettimeofday(&start, NULL); \
+\
+        if (!(ptr = alloctor(addr, size))) \
+            perror("malloc"); \
+\
+        if (need_free && !saver[find].is_free) { \
+            saver[find].is_free = true; \
+            freer(saver[find].ptr); \
+        } \
+\
+        gettimeofday(&end, NULL); \
+\
+        timer += TIME_DIFF(start, end); \
+        LOG_MEMORY(saver, ptr, idx); \
+\
+    } while (0)
 
 
 /* typedef */
@@ -36,18 +55,17 @@ typedef struct memlog {
 } Memlog;
 
 
-/* function */
-static void log_memory(Memlog *log, char *addr);
+/* functions */
+static void mmdp_free_wrap(void *addr);
 
 
 /* data */
 static Memlog   mallocSave[TIMES], museSave[TIMES];
+static Mempool  pool;
 
 
 int main(void)
 {
-    Mempool  pool;
-
     if (!mmdp_create(&pool, 0x8000)) {
         perror("mmdp_create");
         return  -1;
@@ -58,35 +76,21 @@ int main(void)
 
     struct timeval  end, start;
     unsigned long   tma = 0, tmm = 0;
-    int32_t         size = 0;
+    int32_t         size = 0, find = 0;
 
     srandom(time(NULL));
 
     for (int idx = 0; idx < TIMES; idx++) {
         size = random() % 10240 + 1;
-        need_free = (size < 2048);
 
-        gettimeofday(&start, NULL);
+        if (idx > 0) {
+            need_free = (size < 2048);
+            find = random() % idx;
+        }
 
-        if (!(ptr = malloc(size)))
-            perror("malloc");
+        ALLOC(NULL, realloc, free, mallocSave, tma);
+        ALLOC(&pool, mmdp_malloc, mmdp_free_wrap, museSave, tmm);
 
-        if (need_free)
-            free(ptr);
-
-        gettimeofday(&end, NULL);
-
-        tma += TIME_DIFF(start, end);
-
-        gettimeofday(&start, NULL);
-        ptr = mmdp_malloc(&pool, size);
-
-        if (need_free)
-            mmdp_free(&pool, ptr);
-
-        gettimeofday(&end, NULL);
-
-        tmm += TIME_DIFF(start, end);
         need_free = false;
     }
 
@@ -99,8 +103,8 @@ int main(void)
 }
 
 
-void log_memory(Memlog *log, char *addr, )
+void mmdp_free_wrap(void *addr)
 {
-
+    mmdp_free(&pool, addr);
 }
 
