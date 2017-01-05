@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016-10-28 09:25:00
+ *     modification time: 2017-01-05 15:20
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -61,11 +61,11 @@
  *          Part Three: Local function
 -*---------------------------------------------*/
 
-static void    *_block_alloc(Mempool *pool, uint size);
+static void    *_block_alloc(Mempool *pool, uint32_t size);
 
-static void    *_chunk_alloc(Mempool *pool, uint size);
-static void    *_chunk_divide(Chunk *chunk, uint size, uint border);
-static void    *_chunk_new(Mempool *pool, uint size);
+static void    *_chunk_alloc(Mempool *pool, uint32_t size);
+static void    *_chunk_divide(Chunk *chunk, uint32_t size, uint32_t border);
+static void    *_chunk_new(Mempool *pool, uint32_t size);
 static bool     _block_free(Mempool *pool, void *addr);
 
 static Block   *_block_search(Block *block, void *addr);
@@ -105,7 +105,7 @@ bool mmdp_create(Mempool *pool, int border)
 
 
 /*-----mmdp_malloc-----*/
-void *mmdp_malloc(Mempool *pool, uint size)
+void *mmdp_malloc(Mempool *pool, uint32_t size)
 {
     if (!pool || size <= 0) {
         errno = EINVAL;
@@ -190,7 +190,7 @@ void mmdp_reset_chunk(Mempool *pool)
 
     pool->free_chunk = NULL;
 
-    for (uint index = 0; index < pool->nchunk; index++) {
+    for (uint32_t index = 0; index < pool->nchunk; index++) {
         Chunk  *chunk = pool->chunks[index];
 
         _chunk_reset(chunk, pool->sizebor);
@@ -213,7 +213,7 @@ void mmdp_reset_chunk(Mempool *pool)
 -*---------------------------------------------*/
 
 /*-----_block_alloc-----*/
-void *_block_alloc(Mempool *pool, uint size)
+void *_block_alloc(Mempool *pool, uint32_t size)
 {
     Block  *block;
 
@@ -240,7 +240,7 @@ void *_block_alloc(Mempool *pool, uint size)
 
 
 /*-----_chunk_alloc-----*/
-void *_chunk_alloc(Mempool *pool, uint size)
+void *_chunk_alloc(Mempool *pool, uint32_t size)
 {
     if (!pool->current && pool->free_chunk) {
         pool->current = pool->free_chunk;
@@ -256,7 +256,7 @@ void *_chunk_alloc(Mempool *pool, uint size)
 
 
 /*-----_chunk_divide-----*/
-void *_chunk_divide(Chunk *chunk, uint size, uint border)
+void *_chunk_divide(Chunk *chunk, uint32_t size, uint32_t border)
 {
     void   *addr = (char *)chunk->start + (border - chunk->rest);
 
@@ -268,10 +268,10 @@ void *_chunk_divide(Chunk *chunk, uint size, uint border)
 
 
 /*-----_chunk_new-----*/
-void *_chunk_new(Mempool *pool, uint size)
+void *_chunk_new(Mempool *pool, uint32_t size)
 {
     if (pool->nchunk == pool->capablity) {
-        uint    new_cap;
+        uint32_t    new_cap;
 
         if (__builtin_mul_overflow(pool->capablity, 2, &new_cap)) {
             errno = ERANGE;
@@ -285,7 +285,7 @@ void *_chunk_new(Mempool *pool, uint size)
         pool->capablity = new_cap;
     }
 
-    uint    border = pool->sizebor;
+    uint32_t    border = pool->sizebor;
     Chunk  *new_chunk = malloc(sizeof(Chunk) + border);
 
     if (!new_chunk)
@@ -348,8 +348,8 @@ Block *_block_search(Block *block, void *addr)
 Chunk *_chunk_search(Mempool *pool, void *addr)
 {
     Chunk **chunks = pool->chunks;
-    uint    head = 0, tail = pool->nchunk - 1, mid = ((head + tail) >> 1);
-    uint    border = pool->sizebor;
+    uint32_t    head = 0, tail = pool->nchunk - 1, mid = ((head + tail) >> 1);
+    uint32_t    border = pool->sizebor;
 
     if ((Chunk *)addr < chunks[head] || 
         (char *)addr > (char *)chunks[tail]->start + border)
@@ -392,7 +392,7 @@ Chunk *_chunk_search(Mempool *pool, void *addr)
 /*-----_chunk_record-----*/
 void _chunk_record(Mempool *pool, void *chunk)
 {
-    uint    index = pool->nchunk;
+    uint32_t    index = pool->nchunk;
 
     pool->nchunk += 1;
 
@@ -406,7 +406,7 @@ void _chunk_record(Mempool *pool, void *chunk)
         return;
     }
 
-    for (uint offset = 0; offset < index; offset++) {
+    for (uint32_t offset = 0; offset < index; offset++) {
         Chunk **this = pool->chunks;
 
         if ((char *)chunk < (char *)this[offset]) {

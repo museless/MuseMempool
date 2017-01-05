@@ -1,5 +1,5 @@
 /*---------------------------------------------
- *     modification time: 2016.12.30 10:30
+ *     modification time: 2017.01.05 15:20
  *     mender: Muse
 -*---------------------------------------------*/
 
@@ -29,6 +29,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -64,30 +65,29 @@ typedef struct block        Block;
 -*---------------------------------------------*/
 
 struct muse_mempool {
-    Chunk **chunks;
-    Chunk  *free_chunk;
-    Chunk  *current;
+    Chunk     **chunks;
+    Chunk      *free_chunk;
+    Chunk      *current;
 
-    Block  *blocks;
-    Block  *last;
+    Block      *blocks;
+    Block      *last;
 
-    uint    nchunk;
-    uint    capablity;
+    uint32_t    nchunk;
+    uint32_t    capablity;
 
-    uint    nblock;
+    uint32_t    nblock;
 
-    uint    sizebor;
+    uint32_t    sizebor;
 
-    MATOS   blockatom, chunkatom;
+    MATOS       blockatom, chunkatom;
 };
 
 struct chunk {
-    Chunk  *next_free;
+    Chunk      *next_free;
+    void       *start;
 
-    void   *start;
-
-    uint    rest;
-    uint    counter;
+    uint32_t    rest;
+    uint32_t    counter;
 };
 
 #define PCHUNK_LEN  sizeof(Chunk *)
@@ -104,7 +104,7 @@ struct block {
 -*---------------------------------------------*/
 
 bool    mmdp_create(Mempool *pool, int border);
-void   *mmdp_malloc(Mempool *pool, uint size);
+void   *mmdp_malloc(Mempool *pool, uint32_t size);
 void    mmdp_free(Mempool *pool, void *addr);
 
 void    mmdp_free_pool(Mempool *pool);

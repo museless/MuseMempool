@@ -1,6 +1,6 @@
 # flags #
 CC		= gcc
-CFLAGS	= -g -Wall -std=c99 -D_DEFAULT_SOURCE
+CFLAGS	= -g -Wall -std=c99
 CCOM	= -fPIC -c
 CLIB	= -shared
 

@@ -9,6 +9,7 @@
  *     author: Muse
 -*---------------------------------------------*/
 
+#define _DEFAULT_SOURCE
 #include "mempool.h"
 #include <stdlib.h>
 #include <time.h>
